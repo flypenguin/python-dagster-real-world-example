@@ -271,3 +271,62 @@ defs = Definitions(
 ```
 
 Now, if you reload your code in dagster now, it should show all that.
+
+### The `Sensor`
+
+Unfortunately, this is not run, because we don't trigger it.
+To "trigger things" Dagster knows the concept of
+[`Sensor`s](https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors).
+They, well, sense things.
+
+In our case - a ZIP file on an S3 bucket.
+
+So append that code to your `all.py`:
+
+```python
+# file: rwt/all.py, changed parts
+# new import
+from dagster import sensor
+
+@sensor(job=process_zip_file)
+def check_for_zip_file():
+    rstr = "".join([f"{randint(0, 9)}" for _ in range(6)])
+    download_zip_file_config = {
+        "config": {"s3_bucket": "a-bucket", "s3_key": f"/a/bucket/path/{rstr}"}
+    }
+    yield RunRequest(
+        run_key=f"s3_file_{rstr}",
+        run_config={"ops": {"download_zip_file": download_zip_file_config}},
+    )
+```
+
+... aaaand the `Definitions`:
+
+```python
+# file: rwt/__init__.py, changed parts
+defs = Definitions(
+    assets=all_assets,
+    jobs=[all.process_zip_file],
+    sensors=[all.check_for_zip_file],
+)
+```
+
+If called, that sensor will "find" a zip file in an S3 bucket.
+
+### How that fits together
+
+First of all: what I do **not** like here is that you configure parameters
+for an OP in a sensor, which doesn't call the OP, but the job.
+So the sensor needs to know what the OP requests.
+Kinda weird.
+
+But apart from that, fairly simple.
+As for concepts, those are the ones used:
+
+- **`RunRequest` tells Dagster to run a Job**
+    - you can add information to a `RunRequest`
+- **`context` is a "magic function argument"** which is added by Dagster.
+- **Operations can have configuration information** added from the outside,
+  which can then be found within the `context` object.
+
+So this is all that's happening.

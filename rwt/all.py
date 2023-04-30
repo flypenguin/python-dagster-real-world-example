@@ -32,3 +32,15 @@ def process_zip_file():
     local_zip = download_zip_file()
     files_list = unpack_zip_file(local_zip)
     find_relevant_items(files_list)
+
+
+@sensor(job=process_zip_file)
+def check_for_zip_file():
+    rstr = "".join([f"{randint(0, 9)}" for _ in range(6)])
+    download_zip_file_config = {
+        "config": {"s3_bucket": "a-bucket", "s3_key": f"/a/bucket/path/{rstr}"}
+    }
+    yield RunRequest(
+        run_key=f"s3_file_{rstr}",
+        run_config={"ops": {"download_zip_file": download_zip_file_config}},
+    )
