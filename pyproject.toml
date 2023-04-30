@@ -1,0 +1,32 @@
+# https://is.gd/6XZIBT
+
+[project]
+name = "new-project"
+version = "0.0.1"
+#description = "A brief description"
+authors = [
+    {name = "Axel Bock", email ="info@a3b3.de"},
+]
+classifiers = [
+    # https://pypi.org/classifiers/
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Development Status :: 2 - Pre-Alpha",
+]
+dependencies = [
+    # "dependency1 = ^1.0",
+    # "dependency2",
+    "dagster", "dagit", "pandas",
+]
+
+[project.optional-dependencies]
+dev = ["black", ]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.dagster]
+module_name = "rwt"
