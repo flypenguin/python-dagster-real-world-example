@@ -31,6 +31,11 @@ The overly easy
 really doesnt help here.
 So, let's get started right "the right way (tm)".
 
+I will follow the [tutorial](https://docs.dagster.io/tutorial), and start
+using (almost) exactly their examples, so in the beginning you can
+cross-reference if you want to.
+I intend to diverse, though, to get my use cases done.
+
 ```bash
 # set up a project with dagster, dagit and pandas as requirements first,
 # i assume you know how to do this. then ...
@@ -47,11 +52,6 @@ dagster dev -m rwt
 > But how to specify more than one module (arrays for `module_name` don't
 > work) is being said nowhere apparently).
 > Or do you now have more than one module in a dagster project?
-
-So, the dagster new project docs don't tell us _anything_ about where to go
-next.
-I went on to read the [tutorial](https://docs.dagster.io/tutorial),
-which you now do _not_ have to do :) .
 
 Before starting, you should have at least this directory structure now:
 
