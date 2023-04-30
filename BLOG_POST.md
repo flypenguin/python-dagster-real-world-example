@@ -330,3 +330,135 @@ As for concepts, those are the ones used:
   which can then be found within the `context` object.
 
 So this is all that's happening.
+
+## Step 4 – materializing stuff
+
+But. We're still not "there".
+Remember we wanted to actually _continue_ processing our split items?
+Yah, let's do that _now_.
+
+### The second job pipeline
+
+Let's say our `find_relevant_items()` operation now creates assets.
+Each of those assets need to have their own pipeline to be processed.
+So we need to start a new job pipeline for each one.
+
+Cool?
+
+Cool.
+
+So let's start defining the second job pipeline like this:
+
+```python
+# file: rwt/all.py, changed parts
+# new import
+import pandas as pd
+@op
+def load_csv_file(context) -> pd.DataFrame:
+    location = context.op_config["s3_key"]
+    return pd.DataFrame([[location]], columns=["location"])
+
+
+@op
+def handle_csv_file(df: pd.DataFrame) -> pd.DataFrame:
+    apply_func = lambda x: zlib.crc32(x["location"].encode("utf-8"))
+    tmp = df.apply(apply_func, axis=1)
+    return pd.concat([df, tmp], axis=1)
+
+
+@op
+def save_csv_file(df: pd.DataFrame):
+    print(df)
+
+
+@job
+def process_csv_file():
+    save_csv_file(handle_csv_file(load_csv_file()))
+```
+
+### Triggering the second job pipeline
+
+Same problem as before - we now have the job, but no trigger.
+The trigger is now an `asset_sensor`.
+That is a special sensor that reacts on freshly created assets.
+
+Also note the different way to configure runtime information for ooperations.
+Above we used `run_config={...}`, here we use `run_config=RunConfig(...)`.
+Same same, but different.
+
+```python
+# file: rwt/all.py, changed parts
+# new imports
+from dagster import (
+    asset_sensor,
+    SensorEvaluationContext,
+    EventLogEntry,
+    AssetKey,
+    RunConfig,
+)
+
+@asset_sensor(asset_key=AssetKey("csv_file"), job=process_csv_file)
+def check_for_csv_file(context: SensorEvaluationContext, asset_event: EventLogEntry):
+    # from here: https://is.gd/BocYt0
+    # that _CANNOT_ be the way this is done?!?
+    mat_metadata = asset_event.dagster_event.materialization.metadata
+    load_csv_file_config = {"load_csv_file": {"s3_key": mat_metadata["s3_key"].value}}
+    yield RunRequest(
+        run_key=context.cursor, run_config=RunConfig(ops=load_csv_file_config)
+    )
+```
+
+### Materializing assets, finally
+
+We now have the pipeline, and the trigger.
+Unfortunately we still don't have anything ... well, triggering the trigger -
+we still don't actually _create_ ("materialize") any asset.
+
+To do that, as said, we change our `find_relevant_items()` op, to this:
+
+```python
+# file: rwt/all.py, changed parts
+@op
+def find_relevant_items(context, files_list: list[str]):
+    relevant_items = files_list[0 : len(files_list) // 2]
+    for item in relevant_items:
+        relevant_part = "/".join(item.split("/")[-2:])
+        context.log_event(
+            AssetMaterialization(
+                asset_key="csv_file",
+                metadata={
+                    "s3_bucket": "a-bucket",
+                    "s3_key": f"/second/path/{relevant_part}",
+                },
+            )
+        )
+```
+
+(**Remember** to adjust your definitions ...)
+
+## Step 5 – a short reflection
+
+I have _no_ clue whether this is actually correct.
+It works, but I cannot imagine this part is correct:
+
+```python
+# file: rwt/all.py, in @asset_sensor / check_for_csv_file():
+# [...]
+mat_metadata = asset_event.dagster_event.materialization.metadata
+
+# file: rwt/all.py, in
+# [...]
+mat_metadata = asset_event.dagster_event.materialization.metadata
+```
+
+For a couple of reasons:
+
+- there is not a single example which I could find which uses an `asset_sensor`
+- `dagster_event` has about 1000 properties, none of them documented.
+- I would expect that the information is somewhere attached to any kind of
+  "Asset instance", not to the event metadata
+- `metadata` is a dict that holds ... not strings, but some weird kind of
+  dagster `TextValue` representation (whyever they need it). This is why
+  we have that incredibly ugly `mat_metadata["s3_key"].value` construct.
+
+So ... it works, but I can't guarantee results.
