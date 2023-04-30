@@ -88,4 +88,39 @@ After you're done, you can execute `dagster dev` (if it's not running already)
 and click "update" (bottom left corner) if you don't see anything. Then you
 should see the assets.
 
-Play around with it, and then extend the code to:
+Play around with it, and then extend the code to (immediately adding
+[metadata](https://docs.dagster.io/tutorial/building-an-asset-graph#step-3-educating-users-with-metadata)
+to the output):
+
+```python
+# new imports
+import pandas as pd
+from dagster import get_dagster_logger, Output, MetadataValue
+
+# new asset
+@asset
+def top_stories(top_story_ids):
+    logger = get_dagster_logger()
+    results = []
+    for item_id in top_story_ids:
+        url = f"https://hacker-news.firebaseio.com/v0/item/{item_id}.json"
+        item = requests.get(url).json()
+        results.append(item)
+    df = pd.DataFrame(results)
+    logger.info(f"got {len(results)} top stories")
+    return Output(
+        value=df,
+        metadata={
+            "num_records": len(results),
+            "preview": MetadataValue.md(df.head().to_markdown()),
+        },
+    )
+
+```
+
+**Noteworthy about the code changes:**
+
+- The `top_stories` asset takes the asset `top_story_ids` as input.
+  It's an asset created out of another asset.
+- You can create a preview from and associate metadata to the output.
+  (If you don't want that, simply `return df`)
