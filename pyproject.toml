@@ -19,6 +19,7 @@ dependencies = [
     # "dependency1 = ^1.0",
     # "dependency2",
     "dagster", "dagit", "pandas",
+    "requests",
 ]
 
 [project.optional-dependencies]

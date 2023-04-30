@@ -2,6 +2,8 @@
 
 This is a longer one.
 
+**Target audience: "Somewhat" experienced Pythonistas.**
+
 I have an Airflow-shaped problem, but - techie that I am - I wanted to try
 something new: **[Dagster](https://dagster.io)**.
 It boldly claims is is "everything that Airflow can't be any more"
@@ -45,3 +47,45 @@ dagster dev -m rwt
 > But how to specify more than one module (arrays for `module_name` don't
 > work) is being said nowhere apparently).
 > Or do you now have more than one module in a dagster project?
+
+So, the dagster new project docs don't tell us _anything_ about where to go
+next.
+I went on to read the [tutorial](https://docs.dagster.io/tutorial),
+which you now do _not_ have to do :) .
+
+Before starting, you should have at least this directory structure now:
+
+```text
+.
+├── pyproject.toml
+├── requirements.txt
+├── rwt
+│   ├── __init__.py
+│   └── assets.py           # we will start editing this one.
+├── rwt_tests
+│   ├── __init__.py
+│   └── test_assets.py
+└── setup.py
+```
+
+## getting some assets
+
+After we're set up, let's
+[get some assets](https://docs.dagster.io/tutorial/writing-your-first-asset#ingesting-data).
+
+```python
+# rwt/assets.py
+import requests
+from dagster import asset
+
+@asset
+def top_story_ids():
+    newstories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
+    return requests.get(newstories_url).json()[:100]
+```
+
+After you're done, you can execute `dagster dev` (if it's not running already)
+and click "update" (bottom left corner) if you don't see anything. Then you
+should see the assets.
+
+Play around with it, and then extend the code to:
